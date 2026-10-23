@@ -37,6 +37,7 @@ Full tables, with where each standard is assessed and every CASE identifier, are
 - [Teacher guide](docs/TEACHER_GUIDE.md): pacing, collecting results, reading the dashboard, the report rubric, discussion prompts, content notes and accommodations.
 - [Game design](docs/GAME_DESIGN.md): story, mechanics, assessment design and data.
 - [Standards alignment](docs/STANDARDS_ALIGNMENT.md): generated from the game's content.
+- [Playtest review](docs/PLAYTEST_REVIEW.md): student-experience findings, what was fixed, and what to watch for in a pilot.
 
 ## Privacy
 

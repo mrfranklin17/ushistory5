@@ -91,7 +91,7 @@ The game treats these topics directly, at a 5th grade level. Consider previewing
 
 ## What is real and what is fictional
 
-Every voice card is labeled. Exact quotations appear only in the **Exact words** box with a citation.
+Every voice card is labeled as a real person, a real document, or a fictional character based on history. Exact quotations appear only in the **Exact words** box with a citation. Cards do **not** say whether an account is firsthand or secondhand, because several Field Report questions (RI.5.6 and its grade 4 step-back, RI.4.6) ask students to work that out.
 
 - **Real documents and exact quotes:** the Declaration of Independence, Abigail Adams's "Remember the Ladies" letter, Phillis Wheatley's 1774 letter to Samson Occom, Thomas Paine's *Common Sense* and *The American Crisis*, Franklin's 1787 closing speech, George Mason's objections, Cornwallis's surrender letter, Washington's first inaugural address, Senator Maclay's diary, the First Amendment, and Washington's December 1776 letter to his brother.
 - **Real people, adapted or imagined words:** John Adams, Joseph Galloway, Captain Parker and Major Pitcairn (adapted from their 1775 statements), Tyonajanegen, Thayendanegea (Joseph Brant), Benjamin Franklin in Paris, Joseph Plumb Martin (adapted from his 1830 memoir), Polly Cooper (from Oneida oral history), von Steuben, James Armistead, Richard Allen.
@@ -105,6 +105,8 @@ A good extension: have students find the real document behind one of the adapted
 - Use **Explorer** mode, and partner a confident reader with a developing reader.
 - Students can tap any underlined word for a definition. Looked-up words appear in their Time Journal.
 - The timed foraging game has a **Quick forage** button.
+- Stores show **C.A.R.T.'s shopping list**, which works out how much food the pair needs to reach the next store. One tap fills the cart, keeping a few shillings for river ferries. A student who still can't afford a ferry can work for the crew instead, so no one gets stuck.
+- Scene passages are written mostly at a grade 5 to 6 reading level (Flesch-Kincaid). Exact quotes from primary sources are harder, so each one comes with a plain-language version.
 - The whole game works with a keyboard.
 
 ## Editing the content

@@ -35,8 +35,9 @@
     remedy: { label: 'Remedy', unit: 'each', price: 4, desc: 'Herbal medicine for colds, fevers and aches.' }
   };
   const COLD = { 'snow': 5, 'very cold': 5, 'cold': 3 };
+  const FERRY_RESERVE = 8;
   const LEVEL_NAMES = { 1: 'Beginning', 2: 'Approaching', 3: 'Meeting', 4: 'Extending' };
-  const TIER_LABEL = { core: 'Grade 5 skill', scaffold: 'Step back: grade 4 skill', extension: 'Excellence Challenge: grade 6 skill' };
+  const TIER_LABEL = { core: 'Grade 5 question', scaffold: 'Step-back question', extension: 'Excellence Challenge' };
 
   let S = null;
   const ui = { main: null, hud: null, screen: '', scene: null };
@@ -313,18 +314,21 @@
   function avgHealth() { return (S.health[0] + S.health[1]) / 2; }
 
   function renderHUD() {
-    const hide = !S || ['title', 'setup', 'intro', 'load', 'howto', 'home', 'present'].indexOf(ui.screen) !== -1;
+    const hide = !S || ['title', 'setup', 'intro', 'load', 'howto', 'home', 'present', 'timeline', 'causes', 'report-builder', 'report-view', 'results'].indexOf(ui.screen) !== -1;
     ui.hud.hidden = hide;
     if (hide) return;
-    const lm = LM[Math.min(S.leg, LM.length - 1)];
+    const atStop = S.phase === 'landmark';
+    const idx = Math.min(ui.screen === 'jump' ? S.leg + 1 : S.leg, LM.length - 1);
+    const lm = LM[idx];
     const set = function (id, v) { const n = document.getElementById(id); if (n) n.textContent = v; };
-    set('hud-stop', 'Stop ' + (S.leg + 1) + ' of ' + LM.length + ': ' + lm.place.split(',')[0]);
+    set('hud-where-label', atStop ? 'You are at' : 'Heading to');
+    set('hud-stop', 'Stop ' + (idx + 1) + ' of ' + LM.length + ': ' + lm.place.split(',')[0]);
     const dt = parseDate(S.date);
     set('hud-date', MONTHS[dt.getUTCMonth()].slice(0, 3) + ' ' + dt.getUTCDate() + ', ' + dt.getUTCFullYear());
     set('hud-weather', S.weather);
     set('hud-health', healthWord(avgHealth()));
-    set('hud-food', Math.round(S.food) + ' lbs');
-    set('hud-money', S.shillings + ' sh');
+    set('hud-food', Math.round(S.food) + ' lbs · ' + daysOfFood() + ' days');
+    set('hud-money', String(S.shillings));
     const hb = document.getElementById('hud-health');
     if (hb) hb.dataset.level = healthWord(avgHealth()).replace(' ', '-').toLowerCase();
   }
@@ -438,7 +442,7 @@
     if (!S.checkpoint) setCheckpoint();
     switch (S.phase) {
       case 'intro': return introScreen(0);
-      case 'store0': return storeScreen(C.start.store, afterStartStore);
+      case 'store0': return storeScreen(C.start.store, afterStartStore, -1);
       case 'nav': return navigatorScreen(S.leg);
       case 'travel': return travelMenu();
       case 'river': return riverScreen();
@@ -458,7 +462,7 @@
     S.phase = 'intro';
     const panel = C.intro[i];
     const last = i === C.intro.length - 1;
-    const next = function () { if (last) { S.phase = 'store0'; save(); storeScreen(C.start.store, afterStartStore); } else introScreen(i + 1); };
+    const next = function () { if (last) { S.phase = 'store0'; save(); storeScreen(C.start.store, afterStartStore, -1); } else introScreen(i + 1); };
     show('intro',
       el('section', { class: 'story' },
         el('p', { class: 'story-stamp' }, fill(panel.stamp)),
@@ -478,12 +482,54 @@
   // ------------------------------------------------------------ store
   function itemPrice(key, mult) { return Math.ceil(ITEMS[key].price * (mult || 1)); }
 
-  function storeScreen(cfg, onDone) {
+  function foodPerDay() { return RATIONS[S.rations].lbs * 2; }
+  function daysOfFood() { return Math.floor(S.food / foodPerDay()); }
+
+  // How far it is from a stop (-1 = the starting store) to the next store, and how much food that takes.
+  function foodPlan(fromStop) {
+    let miles = 0, days = 0, idx = -1;
+    for (let j = fromStop + 1; j < LM.length; j++) {
+      miles += LM[j].landing.miles;
+      days += Math.ceil(LM[j].landing.miles / PACE.steady.miles) + 2; // spare days for weather and surprises
+      if (LM[j].landing.river && LM[j].landing.river.special) days += 7; // waiting for Christmas night, 1776
+      if (LM[j].store) { idx = j; break; }
+    }
+    return { idx: idx, miles: miles, days: days, lbs: Math.ceil(days * RATIONS.filling.lbs * 2 / 10) * 10 };
+  }
+  function winterAhead(fromStop, toStop) {
+    for (let j = Math.max(0, fromStop + 1); j <= (toStop === -1 ? LM.length - 1 : toStop); j++) {
+      const m = monthOf(LM[j].landing.date);
+      if (m === 11 || m <= 1) return true;
+    }
+    return false;
+  }
+  function planText(plan) {
+    return plan.idx === -1
+      ? 'This is the last store. The rest of the trip is about ' + plan.miles + ' miles, or about ' + plan.days + ' days.'
+      : 'The next store is in ' + LM[plan.idx].place.split(',')[0] + ' (stop ' + (plan.idx + 1) + '), about ' + plan.miles + ' miles away. That is about ' + plan.days + ' days on the road.';
+  }
+
+  function storeScreen(cfg, onDone, fromStop) {
     const qty = { food: 0, coat: 0, wheel: 0, remedy: 0 };
     const max = { food: 40, coat: Math.max(0, 2 - S.coats), wheel: Math.max(0, 3 - S.wheels), remedy: Math.max(0, 6 - S.remedies) };
+    const plan = foodPlan(fromStop == null ? S.leg : fromStop);
+    const coldAhead = winterAhead(fromStop == null ? S.leg : fromStop, plan.idx);
+    const want = {
+      food: Math.min(max.food, Math.max(0, Math.ceil((plan.lbs - S.food) / 10))),
+      coat: coldAhead ? max.coat : 0,
+      wheel: S.wheels === 0 ? 1 : 0,
+      remedy: Math.max(0, 2 - S.remedies)
+    };
     const rows = el('div', { class: 'store-rows' });
     const totalEl = el('p', { class: 'store-total', 'aria-live': 'polite' });
     const buyBtn = btn('Buy these supplies', buy, 'btn-primary');
+    const listBtn = btn('Use C.A.R.T.\u2019s list', useList);
+    function useList() {
+      Object.keys(want).forEach(function (k) { qty[k] = want[k]; });
+      const budget = Math.max(0, S.shillings - FERRY_RESERVE);
+      ['remedy', 'wheel', 'food', 'coat'].forEach(function (k) { while (total() > budget && qty[k] > 0) qty[k]--; });
+      draw();
+    }
 
     function total() { return Object.keys(qty).reduce(function (t, k) { return t + qty[k] * itemPrice(k, cfg.priceMult); }, 0); }
     function draw() {
@@ -495,7 +541,7 @@
         rows.append(el('div', { class: 'store-row' },
           el('div', { class: 'store-item' }, el('strong', null, it.label), el('span', { class: 'store-desc' }, it.desc),
             el('span', { class: 'store-have' }, 'You have: ' + have)),
-          el('div', { class: 'store-price' }, price + ' sh ', el('span', { class: 'muted' }, 'per ' + it.unit)),
+          el('div', { class: 'store-price' }, price + ' shillings ', el('span', { class: 'muted' }, 'per ' + it.unit)),
           el('div', { class: 'stepper' },
             el('button', { type: 'button', class: 'step', 'aria-label': 'Fewer ' + it.label, disabled: qty[k] <= 0 || null, onclick: function () { qty[k]--; draw(); } }, '−'),
             el('span', { class: 'step-qty', 'aria-label': it.label + ' quantity' }, k === 'food' ? (qty[k] * 10) + ' lbs' : qty[k]),
@@ -521,36 +567,52 @@
     async function leave() {
       const m = monthOf(S.date);
       const winter = m === 11 || m <= 1;
-      if (S.food < 30) {
-        const go = await modal({ eyebrow: 'C.A.R.T. warning', title: 'LOW FOOD', body: ['You have only ' + Math.round(S.food) + ' pounds of food. Two travelers eating filling meals need about 6 pounds a day.'], buttons: [{ label: 'Go back and buy food', value: false }, { label: 'Leave anyway', value: true }], escape: false });
+      if (S.food < plan.lbs * 0.6) {
+        const go = await modal({ eyebrow: 'C.A.R.T. warning', title: 'NOT ENOUGH FOOD', body: ['You have ' + Math.round(S.food) + ' pounds of food. ' + planText(plan), 'C.A.R.T. suggests about ' + plan.lbs + ' pounds. Without food, travelers get sick.'], buttons: [{ label: 'Go back and buy food', value: false }, { label: 'Leave anyway', value: true }], escape: false });
         if (!go) return;
       }
-      if (winter && S.coats < 2) {
-        const go = await modal({ eyebrow: 'C.A.R.T. warning', title: 'IT IS WINTER', body: ['Only ' + S.coats + ' of you has a wool coat. Travelers without coats lose health in the cold.'], buttons: [{ label: 'Go back and buy coats', value: false }, { label: 'Leave anyway', value: true }], escape: false });
+      if ((winter || coldAhead) && S.coats < 2) {
+        const go = await modal({ eyebrow: 'C.A.R.T. warning', title: winter ? 'IT IS WINTER' : 'WINTER IS COMING', body: [(S.coats === 0 ? 'Neither of you has' : 'Only one of you has') + ' a wool coat. Travelers without coats lose health in the cold.'], buttons: [{ label: 'Go back and buy coats', value: false }, { label: 'Leave anyway', value: true }], escape: false });
         if (!go) return;
       }
       save();
       onDone();
     }
+    const listItems = [
+      'Food: about ' + plan.lbs + ' pounds (you have ' + Math.round(S.food) + '). Two travelers eat about ' + foodPerDay() + ' pounds a day.',
+      coldAhead ? 'Wool coats: 2, one for each of you (you have ' + S.coats + '). Cold weather is ahead.' : 'Wool coats: you have ' + S.coats + ' of 2.',
+      'Spare wheel: at least 1 (you have ' + S.wheels + ').',
+      'Remedies: about 2 (you have ' + S.remedies + ').',
+      'Save about ' + FERRY_RESERVE + ' shillings for river ferries.'
+    ];
     show('store',
       heading(cfg.name, 'Store', cfg.keeper),
       el('p', { class: 'keeper-says' }, cfg.greeting),
+      el('aside', { class: 'shopping-list' },
+        el('p', { class: 'fact-tag' }, 'C.A.R.T.\u2019s shopping list'),
+        el('p', null, planText(plan)),
+        el('ul', null, listItems.map(function (t) { return el('li', null, t); })),
+        el('div', { class: 'actions' }, listBtn)),
       cfg.priceMult > 1 ? el('p', { class: 'note' }, 'Prices here are ' + Math.round((cfg.priceMult - 1) * 100) + '% higher than in 1773.') : null,
-      rows, totalEl,
-      el('div', { class: 'actions' }, buyBtn, backBtn('Leave the store', leave)),
+      rows,
+      el('div', { class: 'store-bar' }, totalEl, el('div', { class: 'actions' }, buyBtn, backBtn('Leave the store', leave))),
       el('aside', { class: 'fact' }, el('p', { class: 'fact-tag' }, 'Colonial economics'), el('p', null, cfg.fact)));
     draw();
   }
 
   // ------------------------------------------------------------ map
-  function mapOpts(position) {
+  function mapOpts(position, view) {
     const legs = [];
-    for (let i = 0; i <= Math.min(S.leg, LM.length - 1); i++) {
+    const cur = Math.min(S.leg, LM.length - 1);
+    for (let i = 0; i <= cur; i++) {
       legs.push({ from: LM[i].landing, to: LM[i], state: i < S.leg ? 'done' : 'current' });
     }
+    const lm = LM[cur];
     return {
+      view: view,
+      leg: { from: lm.landing, to: { lat: lm.lat, lon: lm.lon, name: lm.place.split(',')[0] } },
       legs: legs,
-      landmarks: pinGroups(),
+      stops: pinGroups(),
       position: position
     };
   }
@@ -568,17 +630,29 @@
     return Object.keys(groups).map(function (k) {
       const g = groups[k];
       const has = function (st) { return g.states.indexOf(st) !== -1; };
-      return { lat: g.lat, lon: g.lon, n: g.ns.join('\u00B7'), state: has('current') ? 'current' : !has('future') ? 'done' : has('done') ? 'partial' : 'future' };
+      return { lat: g.lat, lon: g.lon, n: g.ns.join(', '), place: LM[g.ns[0] - 1].place.split(',')[0], state: has('current') ? 'current' : !has('future') ? 'done' : has('done') ? 'partial' : 'future' };
     });
   }
 
   function mapFigure(opts) {
     const holder = el('div', { class: 'map-holder' });
     const nativeBox = el('input', { id: 'map-native', type: 'checkbox' });
+    const views = [['leg', 'This leg'], ['trip', 'Whole trip'], ['all', 'All 13 colonies']];
+    opts.view = opts.view || 'leg';
+    const tabs = el('div', { class: 'map-views', role: 'group', 'aria-label': 'Map view' });
+    views.forEach(function (vw) {
+      const b = el('button', { type: 'button', class: 'map-view-btn', 'aria-pressed': String(opts.view === vw[0]) }, vw[1]);
+      b.addEventListener('click', function () {
+        opts.view = vw[0];
+        Array.prototype.forEach.call(tabs.children, function (t) { t.setAttribute('aria-pressed', String(t === b)); });
+        draw();
+      });
+      tabs.append(b);
+    });
     function draw() { opts.native = nativeBox.checked; holder.innerHTML = MAP.render(opts); }
     nativeBox.addEventListener('change', draw);
     draw();
-    return el('figure', { class: 'map' }, holder,
+    return el('figure', { class: 'map' }, tabs, holder,
       el('figcaption', { class: 'map-legend' },
         el('span', { class: 'lg lg-ne' }, 'New England'), el('span', { class: 'lg lg-mid' }, 'Middle Colonies'), el('span', { class: 'lg lg-south' }, 'Southern Colonies'),
         el('span', { class: 'lg lg-proc' }, 'Proclamation Line'),
@@ -592,9 +666,10 @@
   }
 
   function mapScreen(back) {
+    const onTrail = S.phase === 'travel' || S.phase === 'river';
     show('map', heading('Map of the colonies', fmtDate(S.date)),
-      mapFigure(mapOpts(S.phase === 'travel' || S.phase === 'river' ? currentPosition() : null)),
-      el('p', { class: 'note' }, 'Numbered circles are the 10 historic stops. Squares are where C.A.R.T. landed you. Philadelphia is stops 2, 4 and 9.'),
+      mapFigure(mapOpts(onTrail ? currentPosition() : null, onTrail ? 'leg' : 'trip')),
+      el('p', { class: 'note' }, '"This leg" shows where C.A.R.T. landed you (square) and where you are going (circle). "Whole trip" shows all 10 stops. Philadelphia is stops 2, 4 and 9.'),
       backBtn('Back', back));
   }
 
@@ -608,8 +683,7 @@
     const done = S.nav.some(function (n) { return n.leg === i; });
     const choicesBox = el('div', { class: 'choices' });
     const feedback = el('div', { class: 'feedback', 'aria-live': 'polite' });
-    const opts = mapOpts(null);
-    opts.legs = opts.legs.map(function (l, k) { return k === i ? { from: l.from, to: l.to, state: 'next' } : l; });
+    const opts = mapOpts(null, 'leg');
 
     function finish() {
       setCheckpoint();
@@ -643,7 +717,7 @@
       if (fb) fb.focus();
     }
     show('nav',
-      heading('Navigator check', 'Stop ' + (i + 1) + ' of ' + LM.length + ' · Map skills (G1.5.1)', 'C.A.R.T. landed you in ' + lm.landing.town + ' on ' + fmtDate(S.date) + '.'),
+      heading('Navigator check', 'Stop ' + (i + 1) + ' of ' + LM.length + ' · Map skills', 'C.A.R.T. landed you in ' + lm.landing.town + ' on ' + fmtDate(S.date) + '.'),
       el('div', { class: 'split' },
         mapFigure(opts),
         el('div', { class: 'q-panel' }, el('p', { class: 'q-stem' }, q.stem), choicesBox, feedback)));
@@ -703,7 +777,7 @@
     return el('dl', { class: 'status-grid' },
       item('Date', fmtDate(S.date)), item('Weather', S.weather),
       item('Health', S.names[0] + ': ' + healthWord(S.health[0]) + ' · ' + S.names[1] + ': ' + healthWord(S.health[1])),
-      item('Food', Math.round(S.food) + ' pounds'), item('Next landmark', next), item('Miles to go', Math.max(0, Math.round(toNext))));
+      item('Food', Math.round(S.food) + ' lbs, about ' + daysOfFood() + ' days'), item('Next landmark', next), item('Miles to go', Math.max(0, Math.round(toNext))));
   }
 
   function travelScreen() {
@@ -717,6 +791,7 @@
         el('h2', { class: 'visually-hidden' }, 'On the trail to ' + LM[S.leg].place),
         cv, statusHolder, log,
         el('div', { class: 'actions' }, btn('Size up the situation', travelMenu, 'btn-primary')),
+        S.leg === 0 ? cart('TIP: I MOVE ON MY OWN. STOP ANY TIME TO CHANGE PACE, REST, FORAGE FOR FOOD OR LOOK AT THE MAP.') : null,
         el('p', { class: 'hint' }, 'Press Space or Enter to stop.')));
     ui.scene = SCENE.travel(cv);
     ui.scene.set(sceneState());
@@ -777,6 +852,19 @@
     updateTravelUI();
     if (await checkCritical()) return;
     if (S.miles >= lm.landing.miles) { stopLoop(); arriveScreen(); return; }
+    if (daysOfFood() <= 2 && S.foodWarned !== S.leg) {
+      S.foodWarned = S.leg;
+      stopLoop();
+      const plan = foodPlan(S.leg - 1);
+      await modal({ eyebrow: 'C.A.R.T. warning', title: S.food <= 0 ? 'OUT OF FOOD' : 'FOOD IS RUNNING LOW',
+        body: [S.food <= 0 ? 'You have no food left. Hungry travelers get sick and walk slower.' : 'You have about ' + daysOfFood() + ' days of food left.',
+          plan.idx === -1 ? 'There are no more stores on this trip.' : 'The next store is in ' + LM[plan.idx].place.split(',')[0] + ' (stop ' + (plan.idx + 1) + ').',
+          'Ideas: stop and forage for food, or change to meager rations so your food lasts longer.'],
+        buttons: [{ label: 'Size up the situation', value: 'menu' }, { label: 'Keep going', value: 'go' }] }).then(function (v) {
+        if (v === 'menu') travelMenu(); else if (ui.screen === 'travel') startLoop();
+      });
+      return;
+    }
     if (atRiver) { stopLoop(); riverScreen(); return; }
     if (Math.random() < MODES[S.mode].events) {
       stopLoop();
@@ -904,12 +992,13 @@
     const what = pick(options);
     hurt(i, randInt(12, 20));
     const body = [S.names[i] + ' has ' + what + '.'];
+    const title = /ankle|toes/.test(what) ? 'Someone is hurt' : 'Someone is sick';
     if (what === 'dysentery') body.push('(Yes, really. Dysentery, a disease spread by dirty water, was common in the 1700s, especially in army camps.)');
     if (S.remedies > 0) {
-      const use = await modal({ eyebrow: 'Trouble on the trail', title: 'Someone is sick', body: body.concat(['You have ' + S.remedies + ' remedies.']), buttons: [{ label: 'Use a remedy', value: true }, { label: 'Save it for later', value: false }] });
+      const use = await modal({ eyebrow: 'Trouble on the trail', title: title, body: body.concat(['You have ' + S.remedies + ' remedies.']), buttons: [{ label: 'Use a remedy', value: true }, { label: 'Save it for later', value: false }] });
       if (use) { S.remedies--; S.health[i] = Math.min(100, S.health[i] + 18); }
     } else {
-      await modal({ eyebrow: 'Trouble on the trail', title: 'Someone is sick', body: body.concat(['You have no remedies. Resting or eating filling meals will help.']) });
+      await modal({ eyebrow: 'Trouble on the trail', title: title, body: body.concat(['You have no remedies. Resting or eating filling meals will help.']) });
     }
   }
   async function evWheel() {
@@ -1114,9 +1203,11 @@
       heading(r.name, 'River crossing', fmtDate(S.date) + ' · Weather: ' + S.weather),
       cv,
       el('p', null, 'The river is ' + S.riverDepth + ' feet deep and about ' + r.width.toLocaleString() + ' feet across. You have ' + S.shillings + ' shillings.'),
+      cart('TIP: WADING IS SAFEST WHEN THE RIVER IS LESS THAN 2.5 FEET DEEP. A FERRY COSTS MONEY BUT IS ALWAYS SAFE.'),
       menu([
         { label: 'Try to wade across (ford the river)', note: r.fordable ? (S.riverDepth < 2.5 ? 'Looks shallow' : S.riverDepth < 4 ? 'Risky' : 'Very risky') : 'Too deep and wide to wade', disabled: !r.fordable, action: ford },
         { label: 'Take the ferry', note: r.ferry + ' shillings', disabled: S.shillings < r.ferry, action: ferry },
+        S.shillings < r.ferry ? { label: 'Work for the ferry crew to pay your way', note: 'Not enough shillings? Load cargo for 2 days', action: work } : null,
         { label: 'Wait a day to see if the river changes', action: wait },
         { label: 'Learn about crossing rivers in the 1700s', action: learn }
       ]));
@@ -1141,6 +1232,10 @@
     async function ferry() {
       S.shillings -= r.ferry;
       await crossed('Taking the ferry', 'The ferry operator poles you across on a flat wooden boat. Safe and dry!');
+    }
+    async function work() {
+      passDays(2, false);
+      await crossed('Working for your crossing', 'You spend two days loading barrels and crates onto the ferry. Then the crew carries you across for free.');
     }
     async function wait() {
       passDays(1, false);
@@ -1225,26 +1320,40 @@
     const cv = el('canvas', { class: 'pixel', width: '320', height: '120', 'aria-hidden': 'true' });
     const last = i === LM.length - 1;
     const check = function (done, label) { return el('li', { class: done ? 'is-done' : '' }, el('span', { class: 'tick', 'aria-hidden': 'true' }, done ? '✓' : '·'), label + (done ? ' (done)' : '')); };
+    const next = !st.scene ? 'look' : nRead < lm.voices.length ? 'talk' : !st.report ? 'report' : !st.journal ? 'journal' : 'go';
+    const nextMsg = { look: 'NEXT STEP: LOOK AROUND.', talk: 'NEXT STEP: TALK TO EVERYONE HERE.', report: 'NEXT STEP: GIVE YOUR FIELD REPORT. (YOU CAN WRITE YOUR JOURNAL NOTES BEFORE OR AFTER.)',
+      journal: 'NEXT STEP: WRITE YOUR TIME JOURNAL NOTES.', go: last ? 'RESEARCH COMPLETE. READY TO GO HOME.' : 'RESEARCH LOGGED. READY TO JUMP.' }[next];
+    const plan = foodPlan(i);
+    const hungry = !lm.store && daysOfFood() < plan.days;
+    const startHere = function (k) { return next === k ? 'Start here' : null; };
     show('hub',
       heading(lm.name, 'Stop ' + (i + 1) + ' of ' + LM.length + (justArrived ? ' · You have arrived!' : ''), lm.place + ' · ' + lm.when),
-      cv,
       el('div', { class: 'hub' },
         el('div', { class: 'hub-menu' }, menu([
-          { label: 'Look around', done: st.scene, action: function () { sceneScreen(i); } },
+          { label: 'Look around', note: startHere('look'), done: st.scene, action: function () { sceneScreen(i); } },
           { label: 'Talk to people', note: nRead + ' of ' + lm.voices.length + ' heard', done: nRead === lm.voices.length, action: function () { voicesScreen(i); } },
-          { label: 'Write in your Time Journal', done: st.journal, action: function () { journalScreen(i); } },
+          { label: 'Write in your Time Journal', note: startHere('journal'), done: st.journal, action: function () { journalScreen(i); } },
           { label: st.report ? 'Field Report complete' : 'Give your Field Report', note: ready ? '3 questions' : 'Look around and talk to everyone first', done: st.report, disabled: st.report || !ready, action: function () { reportScreen(i); } },
-          lm.store ? { label: 'Visit the ' + lm.store.name, action: function () { storeScreen(lm.store, function () { hubScreen(i); }); } } : null,
+          lm.store ? { label: 'Visit the ' + lm.store.name, note: foodNote(i), action: function () { storeScreen(lm.store, function () { hubScreen(i); }, i); } } : null,
           { label: 'Check supplies', action: function () { suppliesScreen(function () { hubScreen(i); }); } },
           { label: 'Look at the map', action: function () { mapScreen(function () { hubScreen(i); }); } },
           { label: 'Save, or get a progress code', action: function () { codeScreen(function () { hubScreen(i); }); } },
           { label: last ? 'Return to 2026' : 'Continue on the trail', note: canLeave ? (last ? 'Research complete!' : 'C.A.R.T. is ready to jump') : 'Finish your journal and Field Report first', disabled: !canLeave, action: function () { if (last) homeScreen(0); else jumpScreen(i + 1); } }
         ])),
-        el('aside', { class: 'hub-checklist' },
-          el('p', { class: 'fact-tag' }, 'Research checklist'),
-          el('ul', null, check(st.scene, 'Look around'), check(nRead === lm.voices.length, 'Talk to everyone'), check(st.journal, 'Time Journal notes'), check(st.report, 'Field Report')),
-          cart(canLeave ? 'RESEARCH LOGGED. READY TO JUMP.' : 'COLLECT NOTES HERE TO CONTINUE.'))));
+        el('div', { class: 'hub-side' },
+          cv,
+          el('aside', { class: 'hub-checklist' },
+            el('p', { class: 'fact-tag' }, 'Research checklist'),
+            el('ul', null, check(st.scene, 'Look around'), check(nRead === lm.voices.length, 'Talk to everyone'), check(st.report, 'Field Report'), check(st.journal, 'Time Journal notes')),
+            cart(nextMsg),
+            hungry ? cart('FOOD CHECK: NO STORE HERE. YOU HAVE ABOUT ' + daysOfFood() + ' DAYS OF FOOD, AND THE NEXT STORE IS ABOUT ' + plan.days + ' DAYS AWAY. FORAGE ON THE TRAIL OR USE SMALLER RATIONS.') : null))));
     SCENE.landmark(cv, lm.art, SCENE.seasonOf(monthOf(S.date)));
+  }
+
+  function foodNote(i) {
+    const plan = foodPlan(i);
+    const need = plan.days;
+    return 'You have about ' + daysOfFood() + ' days of food. ' + (daysOfFood() < need ? 'Buy more here: the next part of the trip takes about ' + need + ' days.' : 'That should get you to the next store.');
   }
 
   function sceneScreen(i) {
@@ -1261,9 +1370,8 @@
   }
 
   function voiceTag(v) {
-    const kind = { real: 'Real person', fictional: 'Fictional character', document: 'Real document' }[v.kind];
-    const acc = { firsthand: 'Firsthand account', secondhand: 'Secondhand account', document: 'Primary source document' }[v.account];
-    return kind + ' · ' + acc;
+    // Firsthand or secondhand is left for students to work out, since Field Reports ask about it.
+    return { real: 'Real person', fictional: 'Fictional character based on history', document: 'Real document' }[v.kind];
   }
 
   function voicesScreen(i) {
@@ -1355,14 +1463,28 @@
     const trust = el('textarea', { id: 'journal-trust', rows: '2' });
     trust.value = prev ? (prev.trust || '') : '';
     const counter = el('p', { class: 'hint', 'aria-live': 'polite' });
-    const srcBoxes = [{ id: 'scene', label: 'The scene at ' + lm.place.split(',')[0] }].concat(lm.voices.map(function (v) { return { id: v.id, label: v.name + ' (' + voiceTag(v).split(' · ')[1].toLowerCase() + ')' }; }))
+    const srcBoxes = [{ id: 'scene', label: 'The scene at ' + lm.place.split(',')[0] }].concat(lm.voices.map(function (v) { return { id: v.id, label: v.name }; }))
       .map(function (s) {
         const box = el('input', { type: 'checkbox', id: 'src-' + s.id, value: s.id, checked: prev && prev.sources.indexOf(s.id) !== -1 });
         return { box: box, node: el('label', { class: 'check', for: 'src-' + s.id }, box, el('span', null, s.label)) };
       });
     const result = el('div', { class: 'journal-result', 'aria-live': 'polite' });
-    ta.addEventListener('input', function () { counter.textContent = wordCount(ta.value) + ' words'; });
-    counter.textContent = wordCount(ta.value) + ' words';
+    const live = el('ul', { class: 'checklist' });
+    function draft() {
+      const text = ta.value.trim();
+      return { text: text, trust: trust.value.trim(), words: wordCount(text), copied: copiedRatio(text, landmarkSourceText(lm)) > 0.4,
+        sources: srcBoxes.filter(function (s) { return s.box.checked; }).map(function (s) { return s.box.value; }) };
+    }
+    function updateLive() {
+      counter.textContent = wordCount(ta.value) + ' words';
+      live.replaceChildren.apply(live, journalChecks(draft(), lm).map(function (c) {
+        return el('li', { class: c.ok ? 'is-done' : '' }, el('span', { class: 'tick', 'aria-hidden': 'true' }, c.ok ? '\u2713' : '\u00B7'), c.label);
+      }));
+    }
+    ta.addEventListener('input', updateLive);
+    trust.addEventListener('input', updateLive);
+    srcBoxes.forEach(function (s) { s.box.addEventListener('change', updateLive); });
+    updateLive();
     let warnedCopy = false;
 
     async function submit() {
@@ -1390,20 +1512,21 @@
       S.shillings += pay;
       save();
       renderHUD();
-      const checks = journalChecks(entry, lm);
+      updateLive();
       result.replaceChildren(
         el('p', { class: 'fb-good' }, 'Saved to your Time Journal. ' + (pay ? 'The town printer pays you ' + pay + ' shillings for your news notes.' : '')),
-        el('ul', { class: 'checklist' }, checks.map(function (c) { return el('li', { class: c.ok ? 'is-done' : '' }, el('span', { class: 'tick', 'aria-hidden': 'true' }, c.ok ? '✓' : '·'), c.label); })),
-        el('p', { class: 'muted' }, entry.level < 4 ? 'You can improve your notes and save again before you leave this stop.' : 'Most excellent notes!'));
+        el('p', { class: 'muted' }, entry.level < 4 ? 'Want to earn more? Check off more of the list above and save again before you leave this stop.' : 'Most excellent notes!'),
+        el('div', { class: 'actions' }, btn('Back to ' + lm.place.split(',')[0], function () { hubScreen(i); }, 'btn-primary')));
     }
 
     show('journal',
-      heading('Time Journal', lm.place + ' · ' + lm.when, 'Research Notes (W.5.8)'),
+      heading('Time Journal', lm.place + ' · ' + lm.when, 'Write research notes for your class report. The town printer pays for good notes.'),
       el('div', { class: 'split split-journal' },
         el('div', null,
           el('div', { class: 'field' }, el('label', { for: 'journal-text', id: 'journal-prompt' }, lm.journal.prompt), el('p', { class: 'hint' }, 'Write 2 to 4 sentences in your own words. Include important details.'), ta, counter),
           el('fieldset', { class: 'field' }, el('legend', null, 'Which sources did you use?'), srcBoxes.map(function (s) { return s.node; })),
           el('div', { class: 'field' }, el('label', { for: 'journal-trust' }, 'Historian’s Edge (optional): Which source do you trust most here, and why?'), trust),
+          el('div', { class: 'notes-check' }, el('p', { class: 'fact-tag' }, 'Great notes checklist'), live),
           el('div', { class: 'actions' }, btn('Save my notes', submit, 'btn-primary'), backBtn('Back to ' + lm.place.split(',')[0], function () { hubScreen(i); })),
           result),
         sourcesPanel(lm)));
@@ -1449,14 +1572,11 @@
       const rs = lm.report[set];
       const o = { lm: lm.id, n: i, std: rs.std, ss: rs.ss, core: null, scaffold: null, ext: null, picks: {}, date: S.date, ts: Date.now() };
       outcomes.push(o);
-      ask(rs, 'core', o, function (ok) {
-        if (ok) offerExt(rs, o); else ask(rs, 'scaffold', o, function () { done(o); });
+      ask(rs, 'core', o, function (ok, tryExt) {
+        if (ok && tryExt) ask(rs, 'extension', o, function () { done(o); });
+        else if (ok) done(o);
+        else ask(rs, 'scaffold', o, function () { done(o); });
       });
-    }
-    function offerExt(rs, o) {
-      modal({ eyebrow: 'Most excellent!', title: 'Excellence Challenge unlocked', body: ['You can try a harder grade 6 version of this skill. There is no penalty if you miss it.'],
-        buttons: [{ label: 'Try the challenge', value: true }, { label: 'Skip it', value: false }] })
-        .then(function (yes) { if (yes) ask(rs, 'extension', o, function () { done(o); }); else done(o); });
     }
     function done(o) {
       o.level = o.core ? (o.ext ? 4 : 3) : (o.scaffold ? 2 : 1);
@@ -1484,24 +1604,34 @@
         o.picks[tier] = choice;
         Array.prototype.forEach.call(choicesBox.children, function (c, k) { c.disabled = true; if (shuffled[k] === item.choices[0]) c.classList.add('is-correct'); });
         if (!ok) b.classList.add('is-wrong');
-        const msg = ok ? (tier === 'extension' ? 'Most excellent! You nailed the grade 6 challenge.' : 'Correct!')
-          : tier === 'core' ? 'Not quite. Let’s take a step back and try a related question.' : 'Not quite.';
-        const cont = function () { then(ok); };
+        const lastSet = set === lm.report.length - 1;
+        const nextLabel = lastSet ? 'Finish the Field Report' : 'Next question';
+        const cont = function () { then(ok, false); };
+        let msg, buttons;
+        if (ok && tier === 'core') {
+          msg = 'Correct! You unlocked an Excellence Challenge: a harder, grade 6 version of this skill. It is optional, and there is no penalty if you miss it.';
+          buttons = [btn('Try the Excellence Challenge', function () { then(true, true); }, 'btn-primary'), btn('Skip it: ' + nextLabel.toLowerCase(), cont)];
+        } else if (!ok && tier === 'core') {
+          msg = 'Not quite. The correct answer is highlighted in green.';
+          buttons = [btn('Try a related question', cont, 'btn-primary')];
+        } else {
+          msg = ok ? (tier === 'extension' ? 'Most excellent! You nailed the grade 6 challenge.' : 'Correct!') : 'Not quite. The correct answer is highlighted in green.';
+          buttons = [btn(nextLabel, cont, 'btn-primary')];
+        }
         feedback.replaceChildren(
           el('p', { class: ok ? 'fb-good' : 'fb-bad' }, msg),
-          ok || tier !== 'core' ? el('p', null, item.why) : el('p', { class: 'muted' }, 'Hint: look back at the sources below.'),
-          btn('Continue', cont, 'btn-primary'));
+          el('p', null, item.why),
+          el('div', { class: 'actions' }, buttons));
         keys.clear();
-        keys.bind('Enter', cont);
+        keys.bind('Enter', ok && tier === 'core' ? function () { then(true, true); } : cont);
         const fb = feedback.querySelector('button');
         if (fb) fb.focus();
       }
       show('report',
         heading('Field Report', lm.place + ' · Question ' + (set + 1) + ' of ' + lm.report.length),
         el('p', { class: 'skill-line' },
-          el('span', { class: 'chip chip-std' }, rs.std + ' · ' + sd.kid),
-          el('span', { class: 'chip chip-tier chip-' + tier }, TIER_LABEL[tier]),
-          el('span', { class: 'chip' }, 'History: ' + rs.ss)),
+          el('span', { class: 'chip chip-std', title: rs.std }, 'Skill: ' + sd.kid),
+          el('span', { class: 'chip chip-tier chip-' + tier }, TIER_LABEL[tier])),
         el('div', { class: 'q-panel' },
           el('p', { class: 'q-stem', 'data-focus': true }, item.stem),
           el('div', { class: 'actions actions-top' }, readAloud(function () { return item.stem + ' ' + shuffled.map(function (c, k) { return 'Choice ' + (k + 1) + ': ' + c + '.'; }).join(' '); })),
@@ -1620,7 +1750,7 @@
     }
     const checkBtn = btn('Check my timeline', check, 'btn-primary');
     show('timeline',
-      heading('Timeline challenge', 'Back in class · History (H1.5.1)', 'Before you present, put these events in order from earliest to latest. Use the arrows to move them.'),
+      heading('Timeline challenge', 'Back in class', 'Before you present, put these events in order from earliest to latest. Use the arrows to move them.'),
       list, el('div', { class: 'actions' }, checkBtn), feedback);
     draw();
   }
@@ -1661,7 +1791,7 @@
       feedback.querySelector('button').focus();
     }
     const checkBtn = btn('Check my answers', check, 'btn-primary');
-    show('causes', heading('Causes and effects', 'Back in class · History (H1.5.1)', 'Match each event with the event that caused it.'),
+    show('causes', heading('Causes and effects', 'Back in class', 'Match each event with the event that caused it.'),
       rows, el('div', { class: 'actions' }, checkBtn), feedback);
   }
 
@@ -1689,7 +1819,7 @@
     const entries = S.journal.slice().sort(function (a, b) { return a.n - b.n; });
     const checklist = el('ul', { class: 'checklist' });
     const msg = el('p', { class: 'form-msg', role: 'status' });
-    function refresh() { checklist.replaceChildren(reportChecks(r).map(function (c) { return el('li', { class: c.ok ? 'is-done' : '' }, el('span', { class: 'tick', 'aria-hidden': 'true' }, c.ok ? '✓' : '·'), c.label); })); save(); }
+    function refresh() { checklist.replaceChildren.apply(checklist, reportChecks(r).map(function (c) { return el('li', { class: c.ok ? 'is-done' : '' }, el('span', { class: 'tick', 'aria-hidden': 'true' }, c.ok ? '✓' : '·'), c.label); })); save(); }
     function area(id, val, rows, onIn) { const t = el('textarea', { id: id, rows: String(rows) }); t.value = val || ''; t.addEventListener('input', function () { onIn(t.value); refresh(); }); return t; }
     const qBox = el('fieldset', { class: 'field' }, el('legend', null, '1. Choose your compelling question'),
       C.finale.questions.map(function (q) {
@@ -1725,7 +1855,7 @@
       reportView();
     }
     show('report-builder',
-      heading('Build your class report', 'Back in class · Opinion writing (W.5.1, W.5.9)', 'Use your own Time Journal notes as evidence.'),
+      heading('Build your class report', 'Back in class', 'Answer a big question about the Revolution, using your own Time Journal notes as evidence.'),
       el('div', { class: 'split split-journal' },
         el('div', { class: 'report-form' },
           qBox,
@@ -1794,13 +1924,14 @@
     const stage = el('div', { class: 'slide', 'aria-live': 'polite' });
     function draw() {
       const s = slides[k];
-      stage.replaceChildren(el('p', { class: 'slide-small' }, s.small), el('p', { class: 'slide-big' }, s.big || ''), s.note ? el('p', { class: 'slide-note' }, '“' + s.note + '”') : null, el('p', { class: 'slide-count' }, (k + 1) + ' / ' + slides.length));
+      stage.replaceChildren();
+      append(stage, [el('p', { class: 'slide-small' }, s.small), el('p', { class: 'slide-big' }, s.big || ''), s.note ? el('p', { class: 'slide-note' }, '“' + s.note + '”') : null, el('p', { class: 'slide-count' }, (k + 1) + ' / ' + slides.length)]);
     }
     const nextFn = function () { if (k < slides.length - 1) { k++; draw(); } };
     const prevFn = function () { if (k > 0) { k--; draw(); } };
     show('present', el('section', { class: 'present' }, el('h2', { class: 'visually-hidden' }, 'Presentation'), stage,
       el('div', { class: 'actions' }, btn('Previous', prevFn), btn('Next', nextFn, 'btn-primary'), backBtn('End presentation', reportView)),
-      el('p', { class: 'hint' }, 'Use the arrow keys to move between slides. Speak clearly and at a steady pace (SL.5.4).')));
+      el('p', { class: 'hint' }, 'Use the arrow keys to move between slides. Speak clearly and at a steady pace.')));
     keys.bind('ArrowRight', nextFn); keys.bind('ArrowLeft', prevFn); keys.bind('Space', nextFn);
     draw();
   }

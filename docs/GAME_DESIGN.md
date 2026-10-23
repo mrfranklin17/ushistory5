@@ -94,7 +94,7 @@ At every stop students write 2 to 4 sentences in their own words and check off t
 - at least one source listed
 - for level 4 (W.6.8): two or more sources and a reason for trusting one of them
 
-Students see the checklist and can revise before leaving the stop. Teachers can override any level.
+Students see the checklist update as they write, so the success criteria are clear before they save, and they can revise before leaving the stop. Teachers can override any level.
 
 ### Final challenges
 
@@ -110,6 +110,9 @@ The game has no server. Progress saves in the browser's localStorage. At any tim
 ## Accessibility
 
 - Readable type (Atkinson Hyperlegible) for all reading passages; pixel fonts only for headings and menus.
+- Scene passages are written mostly at a grade 5 to 6 reading level (Flesch-Kincaid estimates of 5.2 to 7.9; the highest scores come from proper names such as Haudenosaunee).
+- Maps zoom to the current leg and name both towns, with approximate colony borders, so map questions can be answered from the map. "Whole trip" and "All 13 colonies" views are one tap away.
+- Each stop says what to do next, and C.A.R.T.'s shopping list does the food math so the survival game never blocks the history.
 - Read aloud buttons on scenes, voices and questions (browser speech synthesis; can be turned off at setup).
 - Every vocabulary word in a scene is tappable for a definition, and looked-up words are saved.
 - Full keyboard play: number keys choose options, Space or Enter stops the wagon, Escape goes back.
