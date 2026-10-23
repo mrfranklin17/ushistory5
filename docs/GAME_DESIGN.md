@@ -107,9 +107,15 @@ Students see the checklist update as they write, so the success criteria are cle
 
 The game has no server. Progress saves in the browser's localStorage. At any time from the results screen, students copy a progress code (`RT1:` followed by base64-encoded JSON) or download a progress file. The Teacher Dashboard reads codes and files and stores them in the teacher's own browser. Progress codes contain the names students typed, their answers and their writing, so treat them like student work.
 
+## Look and feel
+
+The look is built around the time travel. Everything in the 1770s looks like colonial printing: aged paper, iron-gall ink, red printer's ink, Caslon and IM Fell type, printer's ornaments, and drop caps. Real documents are set as printed broadsides; people's accounts look like letters. Pop-ups are sealed letters, maps are hand-tinted with a title cartouche and compass rose, and the pixel-art scenes are framed as numbered plates. The results screen is a certificate with a wax seal.
+
+Anything from 2026 keeps a glowing modern screen: C.A.R.T.'s messages and warnings, the Friday-afternoon intro, the time jumps, and the return to class. Every switch between the two looks marks a trip through time.
+
 ## Accessibility
 
-- Readable type (Atkinson Hyperlegible) for all reading passages; pixel fonts only for headings and menus.
+- Reading text is set in Libre Caslon, a modern version of the typeface used to print the Declaration of Independence, at a generous size and line spacing. Students can switch to an easier-to-read font (Atkinson Hyperlegible) at setup.
 - Scene passages are written mostly at a grade 5 to 6 reading level (Flesch-Kincaid estimates of 5.2 to 7.9; the highest scores come from proper names such as Haudenosaunee).
 - Maps zoom to the current leg and name both towns, with approximate colony borders, so map questions can be answered from the map. "Whole trip" and "All 13 colonies" views are one tap away.
 - Each stop says what to do next, and C.A.R.T.'s shopping list does the food math so the survival game never blocks the history.

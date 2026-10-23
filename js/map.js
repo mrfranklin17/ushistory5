@@ -166,9 +166,13 @@ window.RT_MAP = (function () {
       return '<text class="' + cls + '" x="' + f(x) + '" y="' + f(y) + '"' + (anchor ? ' text-anchor="' + anchor + '"' : '') + t + '>' + esc(label) + '</text>';
     };
     const out = [];
-    out.push('<svg class="map-svg map-' + mode + '" viewBox="0 0 ' + v.W.toFixed(0) + ' ' + v.H.toFixed(0) + '" role="img" aria-label="' +
+    out.push('<svg class="map-svg map-view-' + mode + '" viewBox="0 0 ' + v.W.toFixed(0) + ' ' + v.H.toFixed(0) + '" role="img" aria-label="' +
       esc(mode === 'leg' ? 'Map from ' + opts.leg.from.town + ' to ' + opts.leg.to.name : mode === 'trip' ? 'Map of all 10 stops' : 'Map of the thirteen colonies') + '">');
     out.push('<rect class="map-sea" x="0" y="0" width="' + v.W.toFixed(0) + '" height="' + v.H.toFixed(0) + '"/>');
+    // Engraved hatching on the sea, as on 18th-century maps.
+    const hatch = ['<g class="map-hatch">'];
+    for (let hy = 5; hy < v.H; hy += 7) hatch.push('<line x1="0" y1="' + hy + '" x2="' + v.W.toFixed(0) + '" y2="' + hy + '"/>');
+    out.push(hatch.join('') + '</g>');
     out.push('<path class="map-land" d="' + d(land, true) + '"/>');
     out.push('<path class="map-land" d="' + d(longIsland, true) + '"/>');
     Object.keys(water).forEach(function (k) { out.push('<path class="map-water" d="' + d(water[k], true) + '"/>'); });
@@ -231,12 +235,35 @@ window.RT_MAP = (function () {
       '<line x1="' + sx + '" y1="' + (sy - 5) + '" x2="' + sx + '" y2="' + (sy + 5) + '"/>' +
       '<line x1="' + f(sx + bar) + '" y1="' + (sy - 5) + '" x2="' + f(sx + bar) + '" y2="' + (sy + 5) + '"/>' +
       '<text x="' + sx + '" y="' + (sy - 9) + '">' + miles + ' miles</text></g>');
-    const cx = v.W - 40, cy = v.H - 58;
-    out.push('<g class="map-compass"><circle class="map-chip" cx="' + cx + '" cy="' + cy + '" r="38"/>' +
-      '<polygon points="' + cx + ',' + (cy - 24) + ' ' + (cx - 7) + ',' + cy + ' ' + (cx + 7) + ',' + cy + '"/>' +
-      '<polygon class="map-compass-s" points="' + cx + ',' + (cy + 24) + ' ' + (cx - 7) + ',' + cy + ' ' + (cx + 7) + ',' + cy + '"/>' +
-      '<text x="' + cx + '" y="' + (cy - 27) + '">N</text><text x="' + cx + '" y="' + (cy + 36) + '">S</text>' +
-      '<text x="' + (cx - 21) + '" y="' + (cy + 5) + '">W</text><text x="' + (cx + 21) + '" y="' + (cy + 5) + '">E</text></g>');
+    // Compass rose: bottom right on a single leg, top right on the big maps.
+    const cx = v.W - 46, cy = mode === 'leg' ? v.H - 54 : 52;
+    const rose = ['<g class="map-rose"><circle cx="' + cx + '" cy="' + cy + '" r="31"/>'];
+    [[0, 30], [90, 30], [180, 30], [270, 30], [45, 16], [135, 16], [225, 16], [315, 16]].forEach(function (pt) {
+      const a = (pt[0] - 90) * Math.PI / 180, len = pt[1], w = len > 20 ? 6 : 4;
+      const tip = [cx + Math.cos(a) * len, cy + Math.sin(a) * len];
+      const l = [cx + Math.cos(a - Math.PI / 2) * w, cy + Math.sin(a - Math.PI / 2) * w];
+      const r = [cx + Math.cos(a + Math.PI / 2) * w, cy + Math.sin(a + Math.PI / 2) * w];
+      const pts = function (q) { return q.map(function (c) { return f(c[0]) + ',' + f(c[1]); }).join(' '); };
+      rose.push('<polygon class="' + (pt[0] === 0 ? 'map-rose-red' : 'map-rose-dark') + '" points="' + pts([[cx, cy], l, tip]) + '"/>');
+      rose.push('<polygon class="map-rose-light" points="' + pts([[cx, cy], r, tip]) + '"/>');
+    });
+    rose.push('<text x="' + cx + '" y="' + (cy - 35) + '">N</text><text x="' + cx + '" y="' + (cy + 46) + '">S</text>' +
+      '<text x="' + (cx - 41) + '" y="' + (cy + 5) + '">W</text><text x="' + (cx + 41) + '" y="' + (cy + 5) + '">E</text></g>');
+    out.push(rose.join(''));
+
+    // Title cartouche, as on a period map.
+    const lines = mode === 'leg'
+      ? [['The Road from', 'small'], [opts.leg.from.town.split(',')[0] + ' to ' + opts.leg.to.name, 'big']]
+      : [['A New Map of the', 'small'], ['British Colonies', 'big'], ["in North America, with the Travellers' Route", 'small']];
+    const cw = Math.max.apply(null, lines.map(function (ln) { return ln[0].length * (ln[1] === 'big' ? 10.5 : 7); })) + 34;
+    const ch = 18 + lines.length * 19;
+    const ox = mode === 'leg' ? 12 : v.W - cw - 12, oy = mode === 'leg' ? 12 : v.H - ch - 12;
+    const cart = ['<g class="map-cartouche"><rect x="' + f(ox) + '" y="' + f(oy) + '" width="' + f(cw) + '" height="' + ch + '"/>' +
+      '<rect class="map-cartouche-inner" x="' + f(ox + 4) + '" y="' + f(oy + 4) + '" width="' + f(cw - 8) + '" height="' + (ch - 8) + '"/>'];
+    lines.forEach(function (ln, k) {
+      cart.push('<text class="map-cartouche-' + ln[1] + '" x="' + f(ox + cw / 2) + '" y="' + f(oy + 24 + k * 19) + '">' + esc(ln[0]) + '</text>');
+    });
+    out.push(cart.join('') + '</g>');
     out.push('</svg>');
     return out.join('');
   }

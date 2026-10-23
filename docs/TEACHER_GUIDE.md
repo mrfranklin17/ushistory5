@@ -101,6 +101,7 @@ A good extension: have students find the real document behind one of the adapted
 
 ## Accommodations
 
+- Students who find the old-style printing hard to read can choose **Use an easier-to-read font** when they start a journey.
 - Turn on **Read aloud** (on by default) for students who benefit from hearing text. Reading standards here measure comprehension, so read-aloud supports access without changing what is assessed. Note it in your records if your school requires.
 - Use **Explorer** mode, and partner a confident reader with a developing reader.
 - Students can tap any underlined word for a definition. Looked-up words appear in their Time Journal.

@@ -19,6 +19,7 @@ To share it with a class, publish the repository with GitHub Pages (**Settings â
 - **Research notes (W.5.8)** in a Time Journal, checked for length, history vocabulary, paraphrasing and sources. The town printer pays for good notes.
 - **Back in class:** a timeline challenge, cause-and-effect matching, an opinion report built from the student's own notes, and a slide view for presenting.
 - **A results screen** with a growth tracker for every reading and writing standard, and a progress code to hand in.
+- **A 1770s look:** aged paper, Caslon type, hand-tinted maps, sealed-letter pop-ups and a certificate at the end, while C.A.R.T. and the 2026 scenes stay on glowing screens. An easier-to-read font is one checkbox away.
 - **A Teacher Dashboard** (`teacher.html`) that reads students' progress codes and shows class-wide and per-student growth, every answer and journal note, teacher overrides, and CSV export. It opens with a fictional sample class so you can see how it works.
 
 ## Standards

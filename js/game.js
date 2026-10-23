@@ -37,6 +37,8 @@
   const COLD = { 'snow': 5, 'very cold': 5, 'cold': 3 };
   const FERRY_RESERVE = 8;
   const LEVEL_NAMES = { 1: 'Beginning', 2: 'Approaching', 3: 'Meeting', 4: 'Extending' };
+  // Screens set in 2026 use the modern "screen" look; everything else looks like 1770s print.
+  const ERA_2026 = ['intro', 'home', 'jump', 'present'];
   const TIER_LABEL = { core: 'Grade 5 question', scaffold: 'Step-back question', extension: 'Excellence Challenge' };
 
   let S = null;
@@ -160,6 +162,8 @@
     stopSpeech();
     if (name !== 'travel') stopLoop();
     ui.screen = name;
+    document.body.classList.toggle('era-2026', ERA_2026.indexOf(name) !== -1);
+    document.body.classList.toggle('easy-read', !!(S && S.easyFont));
     const nodes = Array.prototype.slice.call(arguments, 1);
     ui.main.replaceChildren();
     nodes.forEach(function (n) { append(ui.main, n); });
@@ -204,6 +208,14 @@
     return el('button', { type: 'button', class: 'btn btn-ghost', 'data-key': 'Escape', onclick: fn }, label || 'Back');
   }
 
+  function roman(n) {
+    return ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'][n] || String(n);
+  }
+  // A pixel scene framed like an engraved plate in an old book.
+  function plate(canvas, caption) {
+    return el('figure', { class: 'plate' }, canvas, caption ? el('figcaption', null, caption) : null);
+  }
+
   function cart(text) {
     return el('p', { class: 'cart-says' }, el('span', { class: 'cart-tag' }, 'C.A.R.T.'), ' ', fill(text));
   }
@@ -214,7 +226,8 @@
       keys.clear();
       const prev = document.activeElement;
       let closed = false;
-      const box = el('div', { class: 'modal ' + (opts.cls || ''), role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'modal-title' });
+      const fromCart = /C\.A\.R\.T\./.test((opts.eyebrow || '') + ' ' + opts.title);
+      const box = el('div', { class: 'modal ' + (fromCart ? 'modal-cart ' : '') + (opts.cls || ''), role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'modal-title' });
       if (opts.eyebrow) box.append(el('p', { class: 'eyebrow' }, fill(opts.eyebrow)));
       box.append(el('h2', { id: 'modal-title', class: 'modal-title' }, fill(opts.title)));
       (opts.body || []).forEach(function (b) { box.append(typeof b === 'string' ? el('p', null, rich(b)) : b); });
@@ -255,7 +268,7 @@
   function fresh(opts) {
     return {
       v: 1, id: uid(), created: new Date().toISOString(), updated: null,
-      names: opts.names, teacher: opts.teacher, mode: opts.mode, readAloud: opts.readAloud,
+      names: opts.names, teacher: opts.teacher, mode: opts.mode, readAloud: opts.readAloud, easyFont: !!opts.easyFont,
       food: 0, shillings: MODES[opts.mode].money, wheels: 0, remedies: 0, coats: 0, health: [100, 100],
       pace: 'steady', rations: 'filling', weather: 'cold',
       date: LM[0].landing.date, leg: 0, miles: 0, riverDone: false, riverDepth: null,
@@ -340,10 +353,12 @@
     const cv = el('canvas', { class: 'pixel title-art', width: '320', height: '120', 'aria-hidden': 'true' });
     show('title',
       el('section', { class: 'title-screen' },
-        el('p', { class: 'eyebrow' }, 'A most excellent history adventure'),
+        el('p', { class: 'eyebrow' }, 'A Most Excellent History Adventure'),
         el('h1', { class: 'game-title', 'data-focus': true }, 'The Revolution Trail'),
-        el('p', { class: 'title-sub' }, 'Two 5th graders, one time-traveling library cart, and eighteen years of American history, from the Boston Tea Party in 1773 to the Bill of Rights in 1791.'),
-        cv,
+        el('p', { class: 'title-long' }, 'Being a True Account of Two Scholars of the Fifth Grade, Who Were Carried Back to the Year 1773 by a Library Book Cart, and Who Witnessed the Birth of the United States.'),
+        el('p', { class: 'fleuron', 'aria-hidden': 'true' }, '\u2766 \u2766 \u2766'),
+        el('p', { class: 'title-sub' }, 'From the Boston Tea Party in 1773 to the Bill of Rights in 1791.'),
+        plate(cv, 'The Travellers and their Cart, December 1773.'),
         menu([
           { label: 'Start a new journey', action: setupScreen },
           saved ? { label: 'Continue ' + saved.names[0] + ' and ' + saved.names[1] + '’s journey', note: 'Stop ' + (Math.min(saved.leg, LM.length - 1) + 1) + ' of ' + LM.length + ', ' + fmtDate(saved.date), action: function () { resume(saved); } } : null,
@@ -351,6 +366,7 @@
           { label: 'Load a progress code', action: loadCodeScreen },
           { label: 'How to play', action: howToScreen }
         ]),
+        el('p', { class: 'imprint' }, 'Printed in the Year MMXXVI, and Sold by C.A.R.T.'),
         el('p', { class: 'fineprint' }, 'Teachers: ', el('a', { href: 'teacher.html' }, 'open the Teacher Dashboard'), ' to see class results and literacy growth.')));
     const sc = SCENE.travel(cv);
     sc.set({ season: 'winter', weather: 'snow', coats: 0 });
@@ -388,6 +404,7 @@
     const modeExplorer = el('input', { id: 'mode-explorer', type: 'radio', name: 'mode', value: 'explorer', checked: true });
     const modeTrail = el('input', { id: 'mode-trailblazer', type: 'radio', name: 'mode', value: 'trailblazer' });
     const ra = el('input', { id: 'read-aloud', type: 'checkbox', checked: true });
+    const easy = el('input', { id: 'easy-font', type: 'checkbox' });
     const form = el('form', { class: 'setup-form', novalidate: true },
       el('div', { class: 'field' }, el('label', { for: 'name-a' }, 'Your name'), nameA),
       el('div', { class: 'field' }, el('label', { for: 'name-b' }, 'Your time-travel partner’s name'), nameB,
@@ -397,6 +414,7 @@
         el('label', { class: 'radio', for: 'mode-explorer' }, modeExplorer, el('span', null, el('strong', null, 'Explorer. '), MODES.explorer.note)),
         el('label', { class: 'radio', for: 'mode-trailblazer' }, modeTrail, el('span', null, el('strong', null, 'Trailblazer. '), MODES.trailblazer.note))),
       el('label', { class: 'check', for: 'read-aloud' }, ra, el('span', null, 'Show Read aloud buttons')),
+      el('label', { class: 'check', for: 'easy-font' }, easy, el('span', null, 'Use an easier-to-read font instead of the old-style printing')),
       el('div', { class: 'actions' }, el('button', { type: 'submit', class: 'btn btn-primary' }, 'Begin the journey')));
     form.addEventListener('submit', function (e) {
       e.preventDefault();
@@ -405,7 +423,8 @@
         names: [clean(nameA.value, DEFAULT_NAMES[0]), clean(nameB.value, DEFAULT_NAMES[1])],
         teacher: clean(teacher.value, ''),
         mode: modeTrail.checked ? 'trailblazer' : 'explorer',
-        readAloud: ra.checked
+        readAloud: ra.checked,
+        easyFont: easy.checked
       });
       save();
       introScreen(0);
@@ -789,7 +808,8 @@
     show('travel',
       el('section', { class: 'travel' },
         el('h2', { class: 'visually-hidden' }, 'On the trail to ' + LM[S.leg].place),
-        cv, statusHolder, log,
+        plate(cv, 'On the road to ' + LM[S.leg].place.split(',')[0] + ', ' + MONTHS[monthOf(S.date)] + ' ' + yearOf(S.date) + '.'),
+        statusHolder, log,
         el('div', { class: 'actions' }, btn('Size up the situation', travelMenu, 'btn-primary')),
         S.leg === 0 ? cart('TIP: I MOVE ON MY OWN. STOP ANY TIME TO CHANGE PACE, REST, FORAGE FOR FOOD OR LOOK AT THE MAP.') : null,
         el('p', { class: 'hint' }, 'Press Space or Enter to stop.')));
@@ -1201,7 +1221,7 @@
     const cv = el('canvas', { class: 'pixel', width: '320', height: '120', 'aria-hidden': 'true' });
     show('river',
       heading(r.name, 'River crossing', fmtDate(S.date) + ' · Weather: ' + S.weather),
-      cv,
+      plate(cv, r.name + '.'),
       el('p', null, 'The river is ' + S.riverDepth + ' feet deep and about ' + r.width.toLocaleString() + ' feet across. You have ' + S.shillings + ' shillings.'),
       cart('TIP: WADING IS SAFEST WHEN THE RIVER IS LESS THAN 2.5 FEET DEEP. A FERRY COSTS MONEY BUT IS ALWAYS SAFE.'),
       menu([
@@ -1266,7 +1286,7 @@
     const before = S.date < '1776-12-25';
     show('river',
       heading(r.name, 'River crossing', before ? 'December 1776' : fmtDate(S.date)),
-      cv,
+      plate(cv, 'The Delaware River, Christmas 1776.'),
       el('p', null, before
         ? 'Washington’s army is camped along the river, getting ready for something secret. An officer looks at C.A.R.T. and shrugs. "Christmas night, we cross. If you can push that thing, you can come."'
         : 'Sleet stings your face. Chunks of ice spin past in the black water. Soldiers are loading big Durham boats with cannons and horses.'),
@@ -1341,7 +1361,7 @@
           { label: last ? 'Return to 2026' : 'Continue on the trail', note: canLeave ? (last ? 'Research complete!' : 'C.A.R.T. is ready to jump') : 'Finish your journal and Field Report first', disabled: !canLeave, action: function () { if (last) homeScreen(0); else jumpScreen(i + 1); } }
         ])),
         el('div', { class: 'hub-side' },
-          cv,
+          plate(cv, 'Plate ' + roman(i + 1) + '. ' + lm.name + ', ' + lm.when + '.'),
           el('aside', { class: 'hub-checklist' },
             el('p', { class: 'fact-tag' }, 'Research checklist'),
             el('ul', null, check(st.scene, 'Look around'), check(nRead === lm.voices.length, 'Talk to everyone'), check(st.report, 'Field Report'), check(st.journal, 'Time Journal notes')),
@@ -1365,6 +1385,7 @@
       heading(lm.name, 'Look around', lm.place + ' · ' + lm.when),
       el('div', { class: 'actions actions-top' }, readAloud(function () { return lm.scene.map(plain).join(' '); })),
       el('article', { class: 'prose reading' }, lm.scene.map(function (p) { return el('p', null, rich(p)); })),
+      el('p', { class: 'fleuron', 'aria-hidden': 'true' }, '\u2766'),
       el('p', { class: 'hint' }, 'Tap an underlined word to see what it means.'),
       el('div', { class: 'actions' }, btn('Talk to people', function () { voicesScreen(i); }, 'btn-primary'), backBtn('Back to ' + lm.place.split(',')[0], back)));
   }
@@ -1386,7 +1407,7 @@
   }
 
   function voiceDoc(v, compact) {
-    return el('article', { class: 'doc' + (compact ? ' doc-compact' : '') },
+    return el('article', { class: 'doc doc-kind-' + v.kind + (compact ? ' doc-compact' : '') },
       el('p', { class: 'doc-tag' }, voiceTag(v)),
       el('h3', { class: 'doc-name' }, v.name),
       el('p', { class: 'doc-role' }, rich(v.role)),
@@ -2035,7 +2056,13 @@
     S.results.forEach(function (r) { ssTally[r.ss] = ssTally[r.ss] || [0, 0]; ssTally[r.ss][1]++; if (r.core || r.scaffold) ssTally[r.ss][0]++; });
     const navOk = S.nav.filter(function (n) { return n.correct; }).length;
     show('results',
-      heading(rank(sc.pct), 'Journey complete', S.names[0] + ' and ' + S.names[1] + ' made it home!'),
+      el('section', { class: 'certificate', 'aria-labelledby': 'cert-rank' },
+        el('p', { class: 'certificate-kicker' }, 'Be it known to all that'),
+        el('p', { class: 'certificate-names' }, S.names[0] + ' & ' + S.names[1]),
+        el('p', { class: 'certificate-text' }, 'scholars of the fifth grade, travelled from the year 1773 to the year 1791, witnessed the birth of the United States, and returned to report it to their class. They are hereby named'),
+        el('h2', { class: 'certificate-rank', id: 'cert-rank', 'data-focus': true }, rank(sc.pct)),
+        el('p', { class: 'certificate-text' }, 'Given this day, ' + new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) + (S.teacher ? ', and witnessed by ' + S.teacher : '') + '.'),
+        el('div', { class: 'seal', 'aria-hidden': 'true' }, 'R')),
       el('div', { class: 'score-row' },
         el('div', { class: 'score' }, el('p', { class: 'score-num' }, String(sc.learning)), el('p', { class: 'score-label' }, 'History points')),
         el('div', { class: 'score' }, el('p', { class: 'score-num' }, String(sc.survival)), el('p', { class: 'score-label' }, 'Trail survival bonus')),
