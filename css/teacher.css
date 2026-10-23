@@ -1,0 +1,35 @@
+/* Teacher Dashboard: same tokens as the game, laid out as a scannable report. */
+.shell-wide { max-width: 1240px; }
+.t-head { padding-block: 8px; }
+.t-card { background: var(--panel); border: 1px solid var(--line); padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.t-h2 { font-size: var(--step-1); }
+.t-h3 { font-size: var(--step-0); margin-top: 8px; }
+.t-row { display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: center; }
+.t-import { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 16px; }
+.t-import input[type="file"] { font: inherit; font-size: var(--step--1); color: var(--ink); }
+.t-table { max-width: none; font-size: var(--step--1); }
+.t-table th, .t-table td { padding: 6px 8px; }
+.t-table .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.t-table tbody th { font-weight: 700; }
+.t-students td, .t-students th { white-space: nowrap; }
+.t-students tr.is-selected { background: var(--panel-2); }
+.t-students .actions { flex-wrap: nowrap; }
+.t-small { font-size: 0.85rem; line-height: 1.4; white-space: normal; }
+.t-students th .t-small { display: block; font-weight: 400; }
+.t-uuid { font-family: var(--font-term); font-size: 1rem; word-break: break-all; }
+.t-group td { font-family: var(--font-term); font-size: 1.1rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--lantern); padding-top: 14px; }
+.cell-growth { white-space: nowrap; }
+.cell-growth .lv { font-size: 1rem; }
+.dist { display: flex; min-width: 220px; height: 24px; border: 1px solid var(--line); background: var(--panel-2); }
+.dist-seg { display: grid; place-items: center; font-family: var(--font-term); font-size: 1rem; color: var(--lv-ink); min-width: 18px; }
+.t-note { max-width: none; }
+.t-prompt { font-family: var(--font-doc); font-style: italic; color: var(--parchment-muted); }
+.t-override { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; border-top: 1px solid rgba(107, 86, 56, 0.35); padding-top: 8px; }
+.t-override label { font-weight: 700; }
+.t-override select { width: auto; background: var(--parchment-2); color: var(--parchment-ink); border-color: #b49a6a; font-size: var(--step--1); padding: 6px 8px; }
+#csv-fallback { font-family: var(--font-term); font-size: 1rem; }
+
+@media (max-width: 760px) {
+  .t-import { grid-template-columns: minmax(0, 1fr); }
+  .t-card { padding: 14px; }
+}

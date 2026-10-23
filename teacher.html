@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Revolution Trail Teacher Dashboard</title>
+<meta name="description" content="Class results and literacy growth for The Revolution Trail, aligned to Washington State grade 5 standards.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=IM+Fell+English:ital@0;1&family=Press+Start+2P&family=VT323&display=swap">
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/teacher.css">
+</head>
+<body>
+<div class="shell shell-wide">
+  <header class="screen-head t-head">
+    <p class="eyebrow">The Revolution Trail</p>
+    <h1 class="screen-title">Teacher Dashboard</h1>
+    <p class="screen-sub">Washington grade 5 social studies (U.S. history to 1791) and ELA reading and writing standards. <a href="index.html">Open the game</a>.</p>
+  </header>
+
+  <section class="t-card" aria-labelledby="import-title">
+    <h2 id="import-title" class="t-h2">Add student results</h2>
+    <p class="note">At the end of the game, or any time from the results screen, students copy a progress code or download a progress file. Paste codes or upload files here. Results stay in this browser only.</p>
+    <div class="t-import">
+      <div class="field">
+        <label for="import-code">Paste one or more progress codes</label>
+        <textarea id="import-code" rows="4" placeholder="RT1:..."></textarea>
+      </div>
+      <div class="field">
+        <label for="import-files">Or upload progress files</label>
+        <input id="import-files" type="file" accept=".json,.txt,application/json,text/plain" multiple>
+      </div>
+    </div>
+    <div class="actions">
+      <button type="button" class="btn btn-primary" id="import-btn">Add results</button>
+      <button type="button" class="btn" id="sample-btn">Load a sample class</button>
+      <button type="button" class="btn btn-ghost" id="clear-btn">Remove all students</button>
+    </div>
+    <p class="form-msg" id="import-msg" role="status"></p>
+  </section>
+
+  <section class="t-card" aria-labelledby="class-title">
+    <h2 id="class-title" class="t-h2">Class literacy growth</h2>
+    <p class="note" id="class-note"></p>
+    <div id="class-summary"></div>
+  </section>
+
+  <section class="t-card" aria-labelledby="students-title">
+    <div class="t-row">
+      <h2 id="students-title" class="t-h2">Students</h2>
+      <div class="actions">
+        <button type="button" class="btn btn-small" id="copy-summary">Copy summary CSV</button>
+        <button type="button" class="btn btn-small" id="copy-items">Copy item-level CSV</button>
+        <button type="button" class="btn btn-small" id="dl-summary" hidden>Download summary CSV</button>
+        <button type="button" class="btn btn-small" id="dl-items" hidden>Download item-level CSV</button>
+      </div>
+    </div>
+    <p class="form-msg" id="csv-msg" role="status"></p>
+    <textarea id="csv-fallback" rows="4" readonly hidden aria-label="CSV text"></textarea>
+    <div id="students"></div>
+  </section>
+
+  <section class="t-card" aria-labelledby="detail-title" id="detail-card" hidden>
+    <h2 id="detail-title" class="t-h2">Student detail</h2>
+    <div id="detail"></div>
+  </section>
+
+  <section class="t-card" aria-labelledby="std-title">
+    <h2 id="std-title" class="t-h2">How levels are measured</h2>
+    <div id="levels-ref"></div>
+    <h2 class="t-h2">Standards in this game</h2>
+    <div id="standards-ref"></div>
+  </section>
+</div>
+<script src="js/standards.js"></script>
+<script src="js/content.js"></script>
+<script src="js/teacher.js"></script>
+</body>
+</html>

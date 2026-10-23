@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>The Revolution Trail</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="An Oregon Trail-style history game for 5th graders. Two students time-travel from the Boston Tea Party in 1773 to the Bill of Rights in 1791, collecting research notes. Aligned to Washington State social studies and ELA standards.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=IM+Fell+English:ital@0;1&family=Press+Start+2P&family=VT323&display=swap">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="shell">
+  <header class="hud" id="hud" hidden>
+    <div class="hud-cell hud-where"><span class="hud-label">Where</span><span class="hud-value" id="hud-stop"></span></div>
+    <div class="hud-cell"><span class="hud-label">Date</span><span class="hud-value" id="hud-date"></span></div>
+    <div class="hud-cell"><span class="hud-label">Weather</span><span class="hud-value" id="hud-weather"></span></div>
+    <div class="hud-cell"><span class="hud-label">Health</span><span class="hud-value" id="hud-health"></span></div>
+    <div class="hud-cell"><span class="hud-label">Food</span><span class="hud-value" id="hud-food"></span></div>
+    <div class="hud-cell"><span class="hud-label">Money</span><span class="hud-value" id="hud-money"></span></div>
+  </header>
+  <main id="main" class="stage" aria-live="off"></main>
+  <footer class="site-foot no-print">
+    <p>Aligned to Washington State grade 5 social studies and ELA standards. Every historical voice is labeled as a real person, a real document, or a fictional character based on history.</p>
+  </footer>
+</div>
+<noscript><p class="noscript">The Revolution Trail needs JavaScript turned on.</p></noscript>
+<script src="js/standards.js"></script>
+<script src="js/content.js"></script>
+<script src="js/map.js"></script>
+<script src="js/scene.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>
